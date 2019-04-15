@@ -41,20 +41,19 @@ namespace CityInfo.API
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddMvc();
-            //.AddMvcOptions(o => o.OutputFormatters.Add(
+            //.AddMvcOptions(o => o.OutputFormatters.Add( 
             //    new XmlDataContractSerializerOutputFormatter()) );
 #if DEBUG
             services.AddTransient<IMailService, LocalMailService>();
 #else
             services.AddTransient<IMailService, CloudMailService>();
 #endif
-            var connectionString = @"Server=(localdb)\mssqllocaldb;Database=CityInfoDB;Trusted_Connection=True; ";
-            services.AddDbContext<CityInfoContext>(o => o.UseSqlServer(connectionString));
-
+            var connectionString = Startup.Configuration["connectionStrings:cityInfoDBConnectionString"];
+             services.AddDbContext<CityInfoContext>(o => o.UseSqlServer(connectionString));
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)
+        public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory, CityInfoContext cityInfoContext)
         {
             loggerFactory.AddConsole();
             loggerFactory.AddDebug(LogLevel.Information);
@@ -69,6 +68,10 @@ namespace CityInfo.API
             {
                 app.UseExceptionHandler();
             }
+
+            cityInfoContext.EnsureSeedDataForContext();
+
+            app.UseStatusCodePages();
 
             app.UseMvc();
             app.Run(async (context) =>
