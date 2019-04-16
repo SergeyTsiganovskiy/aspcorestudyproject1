@@ -135,22 +135,23 @@ namespace CityInfo.API.Controllers
                 return BadRequest(ModelState);
             }
 
-            var city = CitiesDataStore.Current.Cities.FirstOrDefault(c => c.Id == cityId);
-
-            if (city == null)
+            if (!_cityInfoRepository.CityExists(cityId))
             {
                 return NotFound();
             }
 
-            var pointOfInterestFromeStore = city.PointOfInterest.FirstOrDefault(p => p.Id == id);
-
-            if (pointOfInterestFromeStore == null)
+            var pointOfInterestEntity = _cityInfoRepository.GetPointOfInterestForCity(cityId, id);
+            if (pointOfInterestEntity == null)
             {
                 return NotFound();
             }
 
-            pointOfInterestFromeStore.Name = pointOfInterest.Name;
-            pointOfInterestFromeStore.Description = pointOfInterest.Description;
+            AutoMapper.Mapper.Map(pointOfInterest, pointOfInterestEntity);
+
+            if (!_cityInfoRepository.Save())
+            {
+                return StatusCode(500, "A problem happened while handling your request.");
+            }
 
             return NoContent();
         }
@@ -164,26 +165,20 @@ namespace CityInfo.API.Controllers
                 return BadRequest();
             }
 
-            var city = CitiesDataStore.Current.Cities.FirstOrDefault(c => c.Id == cityId);
-
-            if (city == null)
+            if (!_cityInfoRepository.CityExists(cityId))
             {
                 return NotFound();
             }
 
-            var pointOfInterestFromeStore = city.PointOfInterest.FirstOrDefault(p => p.Id == id);
-
-            if (pointOfInterestFromeStore == null)
+            var pointOfInterestEntity = _cityInfoRepository.GetPointOfInterestForCity(cityId, id);
+            if (pointOfInterestEntity == null)
             {
                 return NotFound();
             }
 
-            var pointOfInterestToPatch =
-                new PointOfInterestForUpdateDto()
-                {
-                    Name = pointOfInterestFromeStore.Name,
-                    Description = pointOfInterestFromeStore.Description
-                };
+
+
+            var pointOfInterestToPatch = AutoMapper.Mapper.Map<PointOfInterestForUpdateDto>(pointOfInterestEntity);
 
             patchDoc.ApplyTo(pointOfInterestToPatch);
 
@@ -204,33 +199,34 @@ namespace CityInfo.API.Controllers
                 return BadRequest(ModelState);
             }
 
-            pointOfInterestFromeStore.Name = pointOfInterestToPatch.Name;
-            pointOfInterestFromeStore.Description = pointOfInterestToPatch.Description;
-
+            AutoMapper.Mapper.Map(pointOfInterestToPatch, pointOfInterestEntity);
             return NoContent();
         }
 
         [HttpDelete("{cityId}/pointsofinterest/{id}")]
         public IActionResult DeletePointOfInterest(int cityId, int id)
         {
-            var city = CitiesDataStore.Current.Cities.FirstOrDefault(c => c.Id == cityId);
-
-            if (city == null)
+            if (!_cityInfoRepository.CityExists(cityId))
             {
                 return NotFound();
             }
 
-            var pointOfInterestFromeStore = city.PointOfInterest.FirstOrDefault(p => p.Id == id);
-
-            if (pointOfInterestFromeStore == null)
+            var pointOfInterestEntity = _cityInfoRepository.GetPointOfInterestForCity(cityId, id);
+            if (pointOfInterestEntity == null)
             {
                 return NotFound();
             }
 
-            city.PointOfInterest.Remove(pointOfInterestFromeStore);
 
-            _localMailService.Send("Point of interest deleted.", $"Point of interest {pointOfInterestFromeStore.Name} " +
-                                                                 $"with id {pointOfInterestFromeStore.Id} was deleted");
+            _cityInfoRepository.DeletePointOfInterest(pointOfInterestEntity);
+
+            if (!_cityInfoRepository.Save())
+            {
+                return StatusCode(500, "A problem happened while handling your request.");
+            }
+
+            _localMailService.Send("Point of interest deleted.", $"Point of interest {pointOfInterestEntity.Name} " +
+                                                                 $"with id {pointOfInterestEntity.Id} was deleted");
 
             return NoContent();
         }
